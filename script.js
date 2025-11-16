@@ -1,72 +1,73 @@
-import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-const API_KEY = "AIzaSyCsU_dtNE6S8VNnrahZVprnLyY_Dl-tSUg";
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const chatBody = document.querySelector("#chatbotBody");
+const messageInput = document.querySelector(".message-input");
+const sendMessageButton = document.querySelector("#sendBtn");
 
-const systemPrompt = `
-You are a recipe-only assistant.
-ONLY answer questions about:
-- cooking
-- food
-- ingredients
-- substitutions
-- meals
-- nutrition related to food
-- recipes
+const API_KEY = "AIzaSyAwtlJe-eFht3SgeXsl58oqJJDfA2kbJIs";
+const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-If the user asks ANYTHING else say:
-"Ask me something food related."
-`;
+const userData = { message: null };
 
-const chatbotBody = document.getElementById("chatbotBody");
-const userInput = document.getElementById("userInput");
-const sendBtn = document.getElementById("sendBtn");
-
-async function askBot(message) {
-    const chat = model.startChat({
-        history: [
-            { role: "system", parts: [{ text: systemPrompt }] }
-        ]
-    });
-
-    const result = await chat.sendMessage(message);
-    return result.response.text();
+const createMessageElement = (content, ...classes) => {
+  const div = document.createElement("div");
+  div.classList.add(...classes);
+  div.innerHTML = content;
+  return div;
 }
 
-function appendMessage(text, sender) {
-    const msgDiv = document.createElement("div");
-    msgDiv.classList.add(sender);
-    const textDiv = document.createElement("div");
-    textDiv.classList.add("messagetext");
-    textDiv.innerText = text;
-    msgDiv.appendChild(textDiv);
-    chatbotBody.appendChild(msgDiv);
-    chatbotBody.scrollTop = chatbotBody.scrollHeight; // scroll to bottom
+const generateBotResponse = async (incomingMessageDiv) => {
+  const messageText = incomingMessageDiv.querySelector(".messagetext");
+
+  const requestOptions = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+  contents: [
+    { parts: [{ text: `You are a  cooking assistant. Only answer questions about recipes, ingredients, cooking, or food. If the user asks something unrelated, respond with "I can only answer food and recipe questions." User asks: "${userData.message}"` }] }
+  ]
+})
+
+  }
+
+  try {
+    const response = await fetch(API_URL, requestOptions);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error.message);
+
+    const apiResponseText = data.candidates[0].content.parts[0].text.trim();
+    messageText.innerText = apiResponseText;
+    chatBody.scrollTop = chatBody.scrollHeight; 
+  } catch (error) {
+    messageText.innerText = "error.";
+    console.error(error);
+  }
 }
 
-async function sendMessage() {
-    const message = userInput.value.trim();
-    if (!message) return;
+const handleOutgoingMessage = (e) => {
+  e.preventDefault();
 
-    // Show user message
-    appendMessage(message, "usermessage");
-    userInput.value = "";
+  userData.message = messageInput.value.trim();
+  if (!userData.message) return;
 
-    // Get bot response
-    try {
-        const response = await askBot(message);
-        appendMessage(response, "botmessage");
-    } catch (err) {
-        console.error(err);
-        appendMessage(" there was an error.", "botmessage");
-    }
+  const messageContent = `<div class="messagetext"></div>`;
+  const outgoingMessageDiv = createMessageElement(messageContent, "usermessage");
+  outgoingMessageDiv.querySelector(".messagetext").textContent = userData.message;
+  chatBody.appendChild(outgoingMessageDiv);
+  chatBody.scrollTop = chatBody.scrollHeight;
+
+  messageInput.value = "";
+
+  setTimeout(() => {
+    const incomingMessageDiv = createMessageElement(`<div class="messagetext">...</div>`, "botmessage");
+    chatBody.appendChild(incomingMessageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    generateBotResponse(incomingMessageDiv);
+  }, 600);
 }
-
-// Send on button click
-sendBtn.addEventListener("click", sendMessage);
-
-// Send on Enter key
-userInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
+messageInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && messageInput.value.trim()) {
+    e.preventDefault();
+    handleOutgoingMessage(e);
+  }
 });
+sendMessageButton.addEventListener("click", (e) => handleOutgoingMessage(e));
