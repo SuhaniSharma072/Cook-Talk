@@ -1,0 +1,1 @@
+This project is named "Cook Talk". This website will give you recipes of the foods you asked. Also, it suggests the alternative ingredients for the vegetarian people, and when the ingredients are missing. 
